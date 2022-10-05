@@ -77,12 +77,12 @@ deleteOrphanedLuaFiles = (validBaseNames, luaDir, verbose) ->
       continue
 
     alwaysDelete = false
-    if Vim.callFunction('exists', {'g:MoonMakerDeleteOrphanedLuaFiles'}) == 1
-      alwaysDelete = vim.api.nvim_get_var('MoonMakerDeleteOrphanedLuaFiles')
+    if Vim.callFunction('exists', {'g:YueMakerDeleteOrphanedLuaFiles'}) == 1
+      alwaysDelete = vim.api.nvim_get_var('YueMakerDeleteOrphanedLuaFiles')
 
     if not alwaysDelete
       choice = Vim.callFunction(
-        "confirm", { "Lua file at '#{luaRelativePath}' does not have a corresponding Moon file. Delete it?\nNote that this popup can be suppressed with the g:MoonMakerDeleteOrphanedLuaFiles setting", "&Delete\n&Skip\n&Abort", 2, "Question" })
+        "confirm", { "Lua file at '#{luaRelativePath}' does not have a corresponding Yue file. Delete it?\nNote that this popup can be suppressed with the g:YueMakerDeleteOrphanedLuaFiles setting", "&Delete\n&Skip\n&Abort", 2, "Question" })
       if choice == 2
         if verbose
           Vim.echo("Skipping orphaned lua file '#{luaRelativePath}'")
@@ -94,7 +94,7 @@ deleteOrphanedLuaFiles = (validBaseNames, luaDir, verbose) ->
 
     File.delete(filePath)
     if verbose
-      Vim.echo("Deleted file '#{filePath}' since it had no matching moon file")
+      Vim.echo("Deleted file '#{filePath}' since it had no matching yue file")
 
 timeStampIsGreater = (file1Path, file2Path) ->
     time1 = File.getModificationTime(file1Path)
@@ -102,25 +102,25 @@ timeStampIsGreater = (file1Path, file2Path) ->
 
     return time1 > time2
 
-class MoonMaker
+class YueMaker
   getCompiler: () ->
-      if Vim.callFunction('exists', {'g:MoonCompiler'}) == 1
-          return vim.api.nvim_get_var('MoonCompiler')
+      if Vim.callFunction('exists', {'g:YueCompiler'}) == 1
+          return vim.api.nvim_get_var('YueCompiler')
       else
-          return "moonc"
+          return "yue"
 
-  executeMoon: (moonText) ->
-    luaText = Vim.callFunction("system", { MoonMaker.getCompiler() .. " --", moonText })
+  executeYue: (yueText) ->
+    luaText = Vim.callFunction("system", { YueMaker.getCompiler() .. " --", yueText })
     loadstring(luaText)!
 
   -- Returns true if it was compiled
-  compileMoonIfOutOfDate: (moonPath, luaPath) ->
-    if not File.exists(luaPath) or timeStampIsGreater(moonPath, luaPath)
+  compileYueIfOutOfDate: (yuePath, luaPath) ->
+    if not File.exists(luaPath) or timeStampIsGreater(yuePath, luaPath)
       Path.makeMissingDirectoriesInPath(luaPath)
-      output = Vim.callFunction("system", { MoonMaker.getCompiler() .. " -o \"#{luaPath}\" \"#{moonPath}\"" })
+      output = Vim.callFunction("system", { YueMaker.getCompiler() .. " -o \"#{luaPath}\" \"#{yuePath}\"" })
 
       if Vim.eval('v:shell_error') != 0
-        Vim.echoError("Errors occurred while compiling file '#{moonPath}'")
+        Vim.echoError("Errors occurred while compiling file '#{yuePath}'")
         Vim.echoError(output)
         return false
 
@@ -128,25 +128,25 @@ class MoonMaker
 
     return false
 
-  compileDir: (moonDir, luaDir, verbose) ->
+  compileDir: (yueDir, luaDir, verbose) ->
     numUpdated = 0
-    moonBaseNames = {}
+    yueBaseNames = {}
 
-    for filePath in *Directory.getAllFilesWithExtensionRecursive(moonDir, 'moon')
-      baseName = filePath\sub(#moonDir + 2)
-      baseName = baseName\sub(0, #baseName - 5)
-      table.insert(moonBaseNames, baseName)
+    for filePath in *Directory.getAllFilesWithExtensionRecursive(yueDir, 'yue')
+      baseName = filePath\sub(#yueDir + 2)
+      baseName = baseName\sub(0, #baseName - 4)
+      table.insert(yueBaseNames, baseName)
 
-    if #moonBaseNames > 0
-      deleteOrphanedLuaFiles(moonBaseNames, luaDir, verbose)
+    if #yueBaseNames > 0
+      deleteOrphanedLuaFiles(yueBaseNames, luaDir, verbose)
 
-      for baseName in *moonBaseNames
+      for baseName in *yueBaseNames
         luaPath = Path.join(luaDir, baseName) .. '.lua'
-        moonPath = Path.join(moonDir, baseName) .. '.moon'
+        yuePath = Path.join(yueDir, baseName) .. '.yue'
 
-        if MoonMaker.compileMoonIfOutOfDate(moonPath, luaPath)
+        if YueMaker.compileYueIfOutOfDate(yuePath, luaPath)
           if verbose
-            Vim.echo("Compiled file '#{moonPath}'")
+            Vim.echo("Compiled file '#{yuePath}'")
 
           -- Also delete it from the package cache so the next time require(baseName)
           -- is called, it will load the new file
@@ -155,11 +155,11 @@ class MoonMaker
           numUpdated += 1
     return numUpdated
 
-  compileAllMoonFilesInDirectoryRecursive: (rootDir) ->
+  compileAllYueFilesInDirectoryRecursive: (rootDir) ->
     numUpdated = 0
-    for moonPath in *Directory.getAllFilesWithExtensionRecursive(rootDir, 'moon')
-      luaPath = moonPath\sub(0, #moonPath - 4) .. "lua"
-      if MoonMaker.compileMoonIfOutOfDate(moonPath, luaPath)
+    for yuePath in *Directory.getAllFilesWithExtensionRecursive(rootDir, 'yue')
+      luaPath = yuePath\sub(0, #yuePath - 4) .. "lua"
+      if YueMaker.compileYueIfOutOfDate(yuePath, luaPath)
         numUpdated += 1
     return numUpdated
 
@@ -170,16 +170,16 @@ class MoonMaker
     numUpdated = 0
 
     for pluginRoot in *paths
-      moonDir = Path.join(pluginRoot, 'moon')
+      yueDir = Path.join(pluginRoot, 'yue')
       luaDir = Path.join(pluginRoot, 'lua')
 
-      numUpdated += MoonMaker.compileDir(moonDir, luaDir, verbose)
+      numUpdated += YueMaker.compileDir(yueDir, luaDir, verbose)
 
       for dirName in *{'ftplugin', 'indent', 'plugin'}
-        numUpdated += MoonMaker.compileAllMoonFilesInDirectoryRecursive(Path.join(pluginRoot, dirName))
+        numUpdated += YueMaker.compileAllYueFilesInDirectoryRecursive(Path.join(pluginRoot, dirName))
 
     if verbose and numUpdated == 0
-      Vim.echo("All moon files are already up to date")
+      Vim.echo("All yue files are already up to date")
 
     return numUpdated
 
