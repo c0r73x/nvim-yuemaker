@@ -15,9 +15,3 @@ endfunction
 function! yuemaker#compileyueIfOutOfDate(yuePath, luaPath)
     call luaeval("require('yuemaker').compileYueIfOutOfDate(_A[1], _A[2])", [a:yuePath, a:luaPath])
 endfunction
-
-nnoremap <plug>(YueCompile) :<c-u>call yuemaker#compile(1)<cr>
-
-command! -bang -nargs=0 YueCompile call yuemaker#compile(1)
-command! -bang -nargs=1 Yue call yuemaker#execute(<q-args>)
-
